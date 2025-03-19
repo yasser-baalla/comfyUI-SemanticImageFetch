@@ -7,7 +7,7 @@ class SemanticImageFetch:
             "required": {
                 "image": ("IMAGE", {"tooltip": "The list of images to fetch the semantic map from."}), 
                 "clip": ("CLIP", {"tooltip": "The CLIP model used for encoding the text."}),
-                "prompt": ("STRING", ),
+                "prompt": ("STRING",{"multiline": True} ),
                 "clip_vision": ("CLIP_VISION", {"tooltip": "The CLIPVision model used for encoding the images."}),
                 "number_of_candidates": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "Number of closest images to retrieve."}),
             }
@@ -27,15 +27,13 @@ class SemanticImageFetch:
         # Encode the images using the CLIP model
         # check if the projected image is the one we want
         image_embed = clip_vision.encode_image(image)['image_embeds']
-
-        print(image_embed.shape, clip_embed.shape)
         
         clip_embed = clip_embed / clip_embed.norm(dim=-1, keepdim=True)
         image_embed = image_embed / image_embed.norm(dim=-1, keepdim=True)
 
         # Compute cosine similarity
         similarities = torch.matmul(clip_embed, image_embed.T).reshape(-1)
-        print(similarities.shape)
+
         # Select the top-k closest images
         top_k_indices = torch.topk(similarities, k=number_of_candidates, dim=0).indices.squeeze(0)
         return (image[top_k_indices], )
