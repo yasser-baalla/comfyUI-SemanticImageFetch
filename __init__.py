@@ -30,8 +30,8 @@ class SemanticImageFetch:
 
         print(image_embed.shape, clip_embed.shape)
         
-        text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
-        image_embeddings = image_embeddings / image_embeddings.norm(dim=-1, keepdim=True)
+        text_embeddings = clip_embed / text_embeddings.norm(dim=-1, keepdim=True)
+        image_embeddings = image_embed / image_embeddings.norm(dim=-1, keepdim=True)
 
         # Compute cosine similarity
         similarities = torch.matmul(text_embeddings, image_embeddings.T)
