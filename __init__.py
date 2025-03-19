@@ -30,11 +30,11 @@ class SemanticImageFetch:
 
         print(image_embed.shape, clip_embed.shape)
         
-        text_embeddings = clip_embed / text_embeddings.norm(dim=-1, keepdim=True)
-        image_embeddings = image_embed / image_embeddings.norm(dim=-1, keepdim=True)
+        clip_embed = clip_embed / clip_embed.norm(dim=-1, keepdim=True)
+        image_embed = image_embed / image_embed.norm(dim=-1, keepdim=True)
 
         # Compute cosine similarity
-        similarities = torch.matmul(text_embeddings, image_embeddings.T)
+        similarities = torch.matmul(clip_embed, image_embed.T)
         print(similarities.shape)
         # Select the top-k closest images
         top_k_indices = torch.topk(similarities, k=number_of_candidates, dim=0).indices
