@@ -1,6 +1,3 @@
-import torch
-
-
 class SemanticImageFetch:
     @classmethod
     def INPUT_TYPES(s):
