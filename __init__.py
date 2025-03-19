@@ -1,3 +1,5 @@
+import torch
+
 class SemanticImageFetch:
     @classmethod
     def INPUT_TYPES(s):
@@ -24,17 +26,19 @@ class SemanticImageFetch:
         
         # Encode the images using the CLIP model
         # check if the projected image is the one we want
-        image_embeddings = clip_vision.encode_image(image)['image_embeds']
+        image_embed = clip_vision.encode_image(image)['image_embeds']
 
-        print(image_embeddings.shape, clip_embed.shape)
-        # # Compute similarity between text and image embeddings
-        # similarities = self.compute_similarity(clip_embed, image_embeddings)
+        print(image_embed.shape, clip_embed.shape)
+        
+        text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
+        image_embeddings = image_embeddings / image_embeddings.norm(dim=-1, keepdim=True)
 
-        # # Select the top-k closest images
-        # top_k_indices = torch.topk(similarities, k=number_of_candidates, dim=0).indices
-        # closest_images = image[top_k_indices]
-
-        return (image[:number_of_candidates], )
+        # Compute cosine similarity
+        similarities = torch.matmul(text_embeddings, image_embeddings.T)
+        print(similarities.shape)
+        # Select the top-k closest images
+        top_k_indices = torch.topk(similarities, k=number_of_candidates, dim=0).indices
+        return (image[top_k_indices], )
     
 
 NODE_CLASS_MAPPINGS = {"SemanticImageFetch": SemanticImageFetch}
