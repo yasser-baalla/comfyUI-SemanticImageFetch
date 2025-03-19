@@ -5,7 +5,7 @@ class SemanticImageFetch:
             "required": {
                 "image": ("IMAGE", {"tooltip": "The list of images to fetch the semantic map from."}), 
                 "clip": ("CLIP", {"tooltip": "The CLIP model used for encoding the text."}),
-                "text": ("STRING", ),
+                "prompt": ("STRING", ),
                 "clip_vision": ("CLIP_VISION", {"tooltip": "The CLIPVision model used for encoding the images."}),
                 "number_of_candidates": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "Number of closest images to retrieve."}),
             }
