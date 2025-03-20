@@ -66,9 +66,10 @@ class ColorGradingLatent:
     
     def grade(self, input, reference):
 
-        mean_reference = reference['samples'].mean(dim=(2,3), keepdim=True)
+        mean_reference = reference['samples'].mean(dim=(0,2,3), keepdim=True)
         std_reference = reference['samples'].std(dim=(2,3), keepdim=True)
-
+        std_reference = std_reference.mean(dim=0, keepdim=True)
+        
         output_latent = adjust_latent(input['samples'], mean_reference, std_reference)
 
         return ({'samples': output_latent}, )
@@ -80,7 +81,7 @@ class ColorGradeSampler:
             "required": {
                 "reference": ("LATENT", {"tooltip": "The reference image"}),
                 "start" : ("INT", {"default": 0, "min": 0, "max": 10000, "tooltip": "The starting point of the color grading"}),
-                "end" : ("INT", {"default": 15, "min": 15, "max": 10000, "tooltip": "The end point of the color grading"}),
+                "end" : ("INT", {"default": 15, "min": 0, "max": 10000, "tooltip": "The end point of the color grading"}),
                 },
             }
     
@@ -97,6 +98,8 @@ class ColorGradeSampler:
         std_reference = reference['samples'].std(dim=(2,3), keepdim=True)
         std_reference = std_reference.mean(dim=0, keepdim=True)
         
+        if end <= start:
+            raise ValueError("End must be greater than start.")
         @torch.no_grad()
         def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
             """Implements Algorithm 2 (Euler steps) from Karras et al. (2022)."""
@@ -117,7 +120,7 @@ class ColorGradeSampler:
                     x = x + eps * (sigma_hat ** 2 - sigmas[i] ** 2) ** 0.5
                 denoised = model(x, sigma_hat * s_in, **extra_args)
                 d = to_d(x, sigma_hat, denoised)
-                if start < i < end:
+                if start <= i <= end:
                     denoised = adjust_latent(denoised, mean_reference, std_reference)
                 
                 if callback is not None:
