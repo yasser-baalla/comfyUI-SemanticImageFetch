@@ -83,7 +83,7 @@ class ColorGradeSampler:
     
     RETURN_TYPES = ("SAMPLER",)
 
-    FUNCTION = "grade"
+    FUNCTION = "create_sampler"
 
     CATEGORY = "LATENT"
     DESCRIPTION = "sampler to color grade the latent to match the reference latent"
