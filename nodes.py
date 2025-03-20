@@ -1,4 +1,12 @@
 import torch
+from comfy.samplers import KSAMPLER
+from comfy.k_diffusion.sampling import to_d
+from tqdm.auto import trange
+
+def adjust_latent(x, mean_ref, std_ref):
+    mean_input = x.mean(dim=(0,2,3), keepdim=True)
+    std_input = x.std(dim=(0,2,3), keepdim=True)
+    return (x - mean_input) / std_input * std_ref + mean_ref
 
 class SemanticImageFetch:
     @classmethod
@@ -56,11 +64,63 @@ class ColorGradingLatent:
     DESCRIPTION = "Take a latent and color grade it to match the reference latent"
     
     def grade(self, input, reference):
-        mean_input = input['samples'].mean(dim=(0,2,3), keepdim=True)
+
         mean_reference = reference['samples'].mean(dim=(0,2,3), keepdim=True)
-        std_input = input['samples'].std(dim=(0,2,3), keepdim=True)
         std_reference = reference['samples'].std(dim=(0,2,3), keepdim=True)
 
-        output_latent = (input['samples'] - mean_input) / std_input * std_reference + mean_reference
+        output_latent = adjust_latent(input['samples'], mean_reference, std_reference)
 
         return ({'samples': output_latent}, )
+
+class ColorGradeSampler:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "reference": ("LATENT", {"tooltip": "The reference image"}),
+                },
+            }
+    
+    RETURN_TYPES = ("SAMPLER",)
+
+    FUNCTION = "grade"
+
+    CATEGORY = "LATENT"
+    DESCRIPTION = "sampler to color grade the latent to match the reference latent"
+    
+    def create_sampler(self, reference):
+        mean_reference = reference['samples'].mean(dim=(0,2,3), keepdim=True)
+        std_reference = reference['samples'].std(dim=(0,2,3), keepdim=True)
+
+        @torch.no_grad()
+        def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
+            """Implements Algorithm 2 (Euler steps) from Karras et al. (2022)."""
+            extra_args = {} if extra_args is None else extra_args
+            s_in = x.new_ones([x.shape[0]])
+            for i in trange(len(sigmas) - 1, disable=disable):
+                if s_churn > 0:
+                    gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
+                    sigma_hat = sigmas[i] * (gamma + 1)
+                else:
+                    gamma = 0
+                    sigma_hat = sigmas[i]
+
+                if gamma > 0:
+                    eps = torch.randn_like(x) * s_noise
+                    x = x + eps * (sigma_hat ** 2 - sigmas[i] ** 2) ** 0.5
+                denoised = model(x, sigma_hat * s_in, **extra_args)
+                denoised = adjust_latent(denoised, mean_reference, std_reference)
+                d = to_d(x, sigma_hat, denoised)
+                if callback is not None:
+                    callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
+                dt = sigmas[i + 1] - sigma_hat
+                # Euler method
+                x = x + d * dt
+            return x
+        sampler = KSAMPLER(sample_euler)
+        return (sampler, )
+        
+        
+
+
+
