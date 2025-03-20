@@ -4,8 +4,9 @@ from comfy.k_diffusion.sampling import to_d
 from tqdm.auto import trange
 
 def adjust_latent(x, mean_ref, std_ref):
-    mean_input = x.mean(dim=(0,2,3), keepdim=True)
-    std_input = x.std(dim=(0,2,3), keepdim=True)
+    mean_input = x.mean(dim=(2,3), keepdim=True)
+    std_input = x.std(dim=(2,3), keepdim=True) 
+
     return (x - mean_input) / std_input * std_ref + mean_ref
 
 class SemanticImageFetch:
@@ -78,6 +79,8 @@ class ColorGradeSampler:
         return {
             "required": {
                 "reference": ("LATENT", {"tooltip": "The reference image"}),
+                "start" : ("INT", {"default": 0, "min": 0, "max": 10000, "tooltip": "The starting point of the sampling"}),
+                "end" : ("INT", {"default": 1, "min": 1, "max": 10000, "tooltip": "The end point of the sampling"}),
                 },
             }
     
@@ -90,11 +93,15 @@ class ColorGradeSampler:
     
     def create_sampler(self, reference):
         mean_reference = reference['samples'].mean(dim=(0,2,3), keepdim=True)
-        std_reference = reference['samples'].std(dim=(0,2,3), keepdim=True)
 
+        std_reference = reference['samples'].std(dim=(2,3), keepdim=True)
+        std_reference = std_reference.mean(dim=0, keepdim=True)
+        
         @torch.no_grad()
-        def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
+        def sample_euler(model, x, start, end, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
             """Implements Algorithm 2 (Euler steps) from Karras et al. (2022)."""
+            if end <= start:
+                raise ValueError("End must be greater than start.")
             extra_args = {} if extra_args is None else extra_args
             s_in = x.new_ones([x.shape[0]])
             for i in trange(len(sigmas) - 1, disable=disable):
@@ -109,13 +116,15 @@ class ColorGradeSampler:
                     eps = torch.randn_like(x) * s_noise
                     x = x + eps * (sigma_hat ** 2 - sigmas[i] ** 2) ** 0.5
                 denoised = model(x, sigma_hat * s_in, **extra_args)
-                denoised = adjust_latent(denoised, mean_reference, std_reference)
                 d = to_d(x, sigma_hat, denoised)
+                if start < i < end:
+                    denoised = adjust_latent(denoised, mean_reference, std_reference)
+                
                 if callback is not None:
                     callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
-                dt = sigmas[i + 1] - sigma_hat
+                
                 # Euler method
-                x = x + d * dt
+                x = denoised + d * sigmas[i+1]
             return x
         sampler = KSAMPLER(sample_euler)
         return (sampler, )
