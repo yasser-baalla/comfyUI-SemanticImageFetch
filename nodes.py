@@ -4,6 +4,9 @@ from comfy.k_diffusion.sampling import to_d
 from tqdm.auto import trange
 
 def adjust_latent(x, mean_ref, std_ref):
+    # put variable on the same device as x
+    mean_ref = mean_ref.to(x.device)
+    std_ref = std_ref.to(x.device)
     mean_input = x.mean(dim=(2,3), keepdim=True)
     std_input = x.std(dim=(2,3), keepdim=True) 
 
