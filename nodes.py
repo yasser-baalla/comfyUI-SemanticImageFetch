@@ -66,8 +66,8 @@ class ColorGradingLatent:
     
     def grade(self, input, reference):
 
-        mean_reference = reference['samples'].mean(dim=(0,2,3), keepdim=True)
-        std_reference = reference['samples'].std(dim=(0,2,3), keepdim=True)
+        mean_reference = reference['samples'].mean(dim=(2,3), keepdim=True)
+        std_reference = reference['samples'].std(dim=(2,3), keepdim=True)
 
         output_latent = adjust_latent(input['samples'], mean_reference, std_reference)
 
@@ -79,8 +79,8 @@ class ColorGradeSampler:
         return {
             "required": {
                 "reference": ("LATENT", {"tooltip": "The reference image"}),
-                "start" : ("INT", {"default": 0, "min": 0, "max": 10000, "tooltip": "The starting point of the sampling"}),
-                "end" : ("INT", {"default": 1, "min": 1, "max": 10000, "tooltip": "The end point of the sampling"}),
+                "start" : ("INT", {"default": 0, "min": 0, "max": 10000, "tooltip": "The starting point of the color grading"}),
+                "end" : ("INT", {"default": 15, "min": 15, "max": 10000, "tooltip": "The end point of the color grading"}),
                 },
             }
     
@@ -91,14 +91,14 @@ class ColorGradeSampler:
     CATEGORY = "LATENT"
     DESCRIPTION = "sampler to color grade the latent to match the reference latent"
     
-    def create_sampler(self, reference):
+    def create_sampler(self, reference, start, end):
         mean_reference = reference['samples'].mean(dim=(0,2,3), keepdim=True)
 
         std_reference = reference['samples'].std(dim=(2,3), keepdim=True)
         std_reference = std_reference.mean(dim=0, keepdim=True)
         
         @torch.no_grad()
-        def sample_euler(model, x, start, end, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
+        def sample_euler(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
             """Implements Algorithm 2 (Euler steps) from Karras et al. (2022)."""
             if end <= start:
                 raise ValueError("End must be greater than start.")
