@@ -1,0 +1,14 @@
+[project]
+name = "semanticimagefetch"
+description = "Create a custom node to select the closest images semantically to an input prompt"
+version = "1.0.0"
+license = {file = "LICENSE"}
+
+[project.urls]
+Repository = "https://github.com/yasser-baalla/comfyUI-SemanticImageFetch"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "comfyUI-SemanticImageFetch"
+Icon = ""
